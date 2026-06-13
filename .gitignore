@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Saidas geradas (nao versionar resultados)
+data/output/*
+!data/output/.gitkeep
+
+# Dados sensiveis: nunca versionar OFX reais de clientes
+data/input/*.ofx
+!data/input/exemplo.ofx
+
+# Ferramentas
+.pytest_cache/
+.mypy_cache/

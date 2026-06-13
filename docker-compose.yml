@@ -1,0 +1,48 @@
+# Execucao endurecida do AutoDRE.
+#
+# Cada diretiva abaixo reduz o que o container pode fazer no host. O script
+# enxerga somente os dois volumes montados explicitamente e NAO tem rede.
+services:
+  autodre:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: autodre:0.1.0
+
+    # Sem rede: o pipeline e' 100% local. Impede exfiltracao de dados e
+    # qualquer chamada de saida de uma dependencia comprometida.
+    network_mode: "none"
+
+    # Sistema de arquivos raiz somente-leitura: nada pode ser escrito fora
+    # dos volumes/tmpfs declarados.
+    read_only: true
+
+    # Remove TODAS as capabilities do kernel e bloqueia escalonamento de
+    # privilegios (no-new-privileges).
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # Garante usuario non-root mesmo que a imagem seja alterada.
+    user: "app"
+
+    # Limites de recursos: contem um eventual loop/consumo malicioso.
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+
+    # Areas graváveis controladas:
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      # Entrada montada SOMENTE LEITURA (ro): o script nao pode alterar os
+      # arquivos OFX originais do usuario.
+      - type: bind
+        source: ./data/input
+        target: /data/input
+        read_only: true
+      # Saida: unico ponto gravavel no host, isolado em sua propria pasta.
+      - type: bind
+        source: ./data/output
+        target: /data/output

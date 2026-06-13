@@ -1,0 +1,4 @@
+# Dependências de runtime (alto nível). Versões fixas e hashes são geradas em
+# requirements.txt via pip-compile. Mantenha esta lista mínima: cada pacote é
+# superfície de ataque de supply chain.
+numpy==2.2.1
