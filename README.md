@@ -3,7 +3,7 @@
 Análise de extratos **OFX** com construção automática de **plano de contas** e
 geração da **DRE** (Demonstração do Resultado do Exercício).
 
-Projeto Integrador — *Engenharia de Software para IA e Frameworks Profundos*.
+Projeto Integrador — *Engenharia de Software para IA e Frameworks*.
 Esta é a **Entrega 1**: funções, modularização, repositório e a base de
 execução isolada em container.
 
