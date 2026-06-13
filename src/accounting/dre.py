@@ -17,6 +17,7 @@ DRE_ORDER: tuple[str, ...] = (
     "Custos",
     "Despesas Operacionais",
     "Despesas Financeiras",
+    "Nao classificado",
 )
 
 
