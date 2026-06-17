@@ -1,4 +1,4 @@
-# Modelo de Segurança — AutoDRE
+# Modelo de Segurança — loan-risk-analyzer
 
 Este documento descreve as decisões de segurança da Entrega 1, com foco em dois
 riscos: **isolamento da execução** (o script não deve acessar o ambiente local)
@@ -8,14 +8,14 @@ e **supply chain** (dependências comprometidas não devem comprometer o host).
 
 | Ativo | Ameaça | Mitigação |
 |-------|--------|-----------|
-| Dados financeiros do usuário (OFX) | Exfiltração por dependência maliciosa | Container **sem rede** (`network_mode: none`) |
-| Sistema de arquivos do host | Escrita/leitura arbitrária pelo script | Raiz **read-only** + apenas dois volumes montados |
-| Arquivos OFX originais | Adulteração | Volume de entrada montado **somente leitura** |
+| Dados de crédito do solicitante (CSV) | Exfiltração por dependência maliciosa | Container **sem rede** (`network_mode: none`) |
+| Sistema de arquivos do host | Escrita/leitura arbitrária pelo script | Raiz **read-only** + apenas volumes montados |
+| Dataset original (`loan_data.csv`) | Adulteração | Volume de entrada montado **somente leitura** |
 | Cadeia de dependências | Pacote/versão adulterada (typosquatting, conta comprometida) | **Hashes fixados** + `--require-hashes` + `--no-deps` |
 | Kernel do host | Escalonamento de privilégio | `cap_drop: ALL`, `no-new-privileges`, **non-root** |
 
-> Premissa: a entrada (OFX) é **não confiável**. O parser usa apenas a
-> biblioteca padrão e trata o conteúdo como texto, sem `eval`/execução.
+> Premissa: a entrada (CSV) é **não confiável**. O parser usa apenas a
+> biblioteca padrão (`csv`) e trata o conteúdo como dados, sem `eval`/execução.
 
 ## 2. Isolamento da execução
 
@@ -27,8 +27,8 @@ privilégio**. As diretivas em `docker-compose.yml`:
   de saída. O pipeline é 100% local.
 - **`read_only: true`** — o sistema de arquivos raiz é imutável. A única área
   gravável é o volume `data/output` e um `tmpfs` de 64 MB em `/tmp`.
-- **Volume de entrada `read_only`** — `data/input` é montado como somente
-  leitura; o script não pode alterar os extratos originais do usuário.
+- **Volume de entrada `read_only`** — `data/loan_data.csv` é montado como
+  somente leitura; o script não pode alterar o dataset original.
 - **`cap_drop: ALL` + `no-new-privileges:true`** — remove todas as
   capabilities do kernel e impede ganho de privilégio em tempo de execução.
 - **Usuário `non-root`** — definido no `Dockerfile` (`USER app`) e reforçado no
@@ -36,8 +36,8 @@ privilégio**. As diretivas em `docker-compose.yml`:
 - **Limites de recurso** — `pids_limit`, `mem_limit` e `cpus` contêm consumo
   anômalo (loops, fork bombs, mineração).
 
-Resultado: o script "vê" somente os dois diretórios de dados montados
-explicitamente e não tem como tocar no restante da máquina nem na rede.
+Resultado: o script "vê" somente os volumes de dados montados explicitamente
+e não tem como tocar no restante da máquina nem na rede.
 
 ## 3. Defesa de supply chain
 
@@ -71,8 +71,8 @@ make audit
 
 ## 4. Boas práticas de dados
 
-- OFX reais de clientes **não são versionados** (ver `.gitignore`); apenas
-  `exemplo.ofx` (sintético) é incluído.
+- O dataset `loan_data.csv` é montado como volume **somente leitura** e não é
+  copiado para a imagem (ver `.dockerignore`).
 - Nenhum segredo/credencial é embutido na imagem ou no código.
 - Caminhos de entrada/saída vêm de variáveis de ambiente, nunca hardcoded para
   o host.

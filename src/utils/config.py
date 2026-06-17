@@ -1,7 +1,7 @@
-"""Configuração central do AutoDRE.
+"""Configuração central do loan-risk-analyzer.
 
 Mantém caminhos e parâmetros em um único ponto, alimentados por variáveis de
-ambiente. Dentro do container, INPUT_DIR e OUTPUT_DIR apontam para volumes
+ambiente. Dentro do container, DATA_PATH e OUTPUT_DIR apontam para volumes
 montados explicitamente — o código nunca acessa caminhos arbitrários do host.
 """
 
@@ -11,7 +11,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-# Sementes fixas para reprodutibilidade (RNF02).
 RANDOM_SEED: int = 42
 
 
@@ -19,7 +18,7 @@ RANDOM_SEED: int = 42
 class Settings:
     """Configurações imutáveis derivadas do ambiente."""
 
-    input_dir: Path
+    data_path: Path
     output_dir: Path
 
     @staticmethod
@@ -27,9 +26,13 @@ class Settings:
         """Constrói as configurações a partir de variáveis de ambiente.
 
         No container, os diretórios são montados como volumes dedicados:
-        - /data/input  (somente leitura) -> arquivos OFX do usuário
-        - /data/output (escrita)         -> resultados gerados
+        - /data/loan_data.csv (somente leitura) -> dataset de empréstimos
+        - /data/output        (escrita)          -> resultados gerados
         """
-        input_dir = Path(os.environ.get("AUTODRE_INPUT_DIR", "/data/input"))
-        output_dir = Path(os.environ.get("AUTODRE_OUTPUT_DIR", "/data/output"))
-        return Settings(input_dir=input_dir, output_dir=output_dir)
+        data_path = Path(
+            os.environ.get("LOANRISK_DATA_PATH", "data/loan_data.csv")
+        )
+        output_dir = Path(
+            os.environ.get("LOANRISK_OUTPUT_DIR", "data/output")
+        )
+        return Settings(data_path=data_path, output_dir=output_dir)

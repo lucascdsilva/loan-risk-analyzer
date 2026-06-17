@@ -1,13 +1,13 @@
-# Execucao endurecida do AutoDRE.
+# Execução endurecida do loan-risk-analyzer.
 #
 # Cada diretiva abaixo reduz o que o container pode fazer no host. O script
-# enxerga somente os dois volumes montados explicitamente e NAO tem rede.
+# enxerga somente os volumes montados explicitamente e NAO tem rede.
 services:
-  autodre:
+  loan-risk-analyzer:
     build:
       context: .
       dockerfile: Dockerfile
-    image: autodre:0.1.0
+    image: loan-risk-analyzer:0.1.0
 
     # Sem rede: o pipeline e' 100% local. Impede exfiltracao de dados e
     # qualquer chamada de saida de uma dependencia comprometida.
@@ -36,11 +36,11 @@ services:
     tmpfs:
       - /tmp:size=64m,mode=1777
     volumes:
-      # Entrada montada SOMENTE LEITURA (ro): o script nao pode alterar os
-      # arquivos OFX originais do usuario.
+      # Dataset montado SOMENTE LEITURA (ro): o script nao pode alterar os
+      # dados originais do usuario.
       - type: bind
-        source: ./data/input
-        target: /data/input
+        source: ./data/loan_data.csv
+        target: /data/loan_data.csv
         read_only: true
       # Saida: unico ponto gravavel no host, isolado em sua propria pasta.
       - type: bind
