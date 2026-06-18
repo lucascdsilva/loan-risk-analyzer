@@ -5,7 +5,7 @@
 **/*.pyc
 .venv
 venv
-data/output
+data
 docs
 tests
 *.md

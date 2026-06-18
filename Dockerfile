@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Build multi-stage e endurecido para o AutoDRE.
+# Build multi-stage e endurecido para o loan-risk-analyzer.
 # Objetivos de seguranca:
 #  - imagem final minima (sem toolchain de build);
 #  - dependencias instaladas com --require-hashes (defesa de supply chain);
@@ -38,8 +38,8 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
-    AUTODRE_INPUT_DIR=/data/input \
-    AUTODRE_OUTPUT_DIR=/data/output
+    LOANRISK_DATA_PATH=/data/loan_data.csv \
+    LOANRISK_OUTPUT_DIR=/data/output
 
 # Usuario non-root sem shell de login.
 RUN groupadd --system app && \

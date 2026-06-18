@@ -1,61 +1,87 @@
-"""Pré-processamento das transações.
+"""Pré-processamento do dataset de risco de crédito.
 
-Nesta Entrega 1 cobrimos a limpeza/normalização de texto e a separação
-treino/teste. A vetorização com NumPy e a conversão para tensores entram nas
-etapas seguintes (NumPy / PyTorch).
+Cobre codificação de variáveis categóricas e split treino/teste.
+A vetorização com NumPy e a conversão para tensores entram nas etapas seguintes.
 """
 
 from __future__ import annotations
 
-import re
-import unicodedata
+import random
+from dataclasses import dataclass
 from typing import List, Sequence, Tuple
 
-from src.data.ofx_loader import Transaction
+from src.data.loan_loader import LoanRecord
 
-_NON_ALNUM = re.compile(r"[^a-z0-9 ]+")
-_MULTISPACE = re.compile(r"\s+")
+# Escolaridade tratada como ordinal (quanto maior, mais escolaridade).
+EDUCATION_ORDER = {
+    "High School": 0,
+    "Associate": 1,
+    "Bachelor": 2,
+    "Master": 3,
+    "Doctorate": 4,
+}
 
 
-def normalize_text(text: str) -> str:
-    """Normaliza a descrição de uma transação.
+@dataclass(frozen=True)
+class CleanedRecord:
+    """Registro com features numéricas e categóricas já codificadas."""
 
-    Remove acentuação, coloca em minúsculas e elimina ruído, preservando
-    o conteúdo útil para classificação (palavras e números).
-    """
-    no_accents = (
-        unicodedata.normalize("NFKD", text)
-        .encode("ascii", "ignore")
-        .decode("ascii")
+    person_age: float
+    person_income: float
+    person_emp_exp: int
+    loan_amnt: float
+    loan_int_rate: float
+    loan_percent_income: float
+    cb_person_cred_hist_length: float
+    credit_score: int
+    gender_female: int      # 1 = feminino, 0 = masculino
+    education_level: int    # nível ordinal de escolaridade
+    home_ownership: str     # categoria preservada (one-hot nas etapas seguintes)
+    loan_intent: str        # finalidade do empréstimo
+    previous_default: int   # 1 = "Yes", 0 = "No"
+    loan_status: int        # variável alvo: 0 = sem default, 1 = default
+
+
+def encode_record(record: LoanRecord) -> CleanedRecord:
+    """Codifica as variáveis categóricas de um único LoanRecord."""
+    return CleanedRecord(
+        person_age=record.person_age,
+        person_income=record.person_income,
+        person_emp_exp=record.person_emp_exp,
+        loan_amnt=record.loan_amnt,
+        loan_int_rate=record.loan_int_rate,
+        loan_percent_income=record.loan_percent_income,
+        cb_person_cred_hist_length=record.cb_person_cred_hist_length,
+        credit_score=record.credit_score,
+        gender_female=1 if record.person_gender.lower() == "female" else 0,
+        education_level=EDUCATION_ORDER.get(record.person_education, -1),
+        home_ownership=record.person_home_ownership,
+        loan_intent=record.loan_intent,
+        previous_default=1 if record.previous_loan_defaults_on_file == "Yes" else 0,
+        loan_status=record.loan_status,
     )
-    lowered = no_accents.lower()
-    cleaned = _NON_ALNUM.sub(" ", lowered)
-    return _MULTISPACE.sub(" ", cleaned).strip()
 
 
-def clean_transactions(transactions: Sequence[Transaction]) -> List[Transaction]:
-    """Aplica a normalização de texto ao memo de cada transação."""
-    return [
-        Transaction(
-            fitid=t.fitid,
-            posted_at=t.posted_at,
-            amount=t.amount,
-            trntype=t.trntype,
-            memo=normalize_text(t.memo),
-        )
-        for t in transactions
-    ]
+def clean_dataset(records: Sequence[LoanRecord]) -> List[CleanedRecord]:
+    """Codifica todos os registros, descartando linhas com erro de parsing."""
+    result: List[CleanedRecord] = []
+    for r in records:
+        try:
+            result.append(encode_record(r))
+        except (ValueError, KeyError):
+            continue
+    return result
 
 
 def split_data(
-    transactions: Sequence[Transaction],
+    records: Sequence[CleanedRecord],
     test_ratio: float = 0.2,
     seed: int = 42,
-) -> Tuple[List[Transaction], List[Transaction]]:
-    """Divide as transações em treino e teste de forma determinística.
+) -> Tuple[List[CleanedRecord], List[CleanedRecord]]:
+    """Divide os registros em treino e teste de forma determinística.
 
     Args:
-        transactions: transações já limpas.
+        records: registros já pré-processados.
         test_ratio: fração reservada para teste (0 < ratio < 1).
         seed: semente para embaralhamento reprodutível.
 
@@ -64,10 +90,7 @@ def split_data(
     """
     if not 0.0 < test_ratio < 1.0:
         raise ValueError("test_ratio deve estar entre 0 e 1.")
-
-    import random
-
-    items = list(transactions)
+    items = list(records)
     rng = random.Random(seed)
     rng.shuffle(items)
     cut = int(len(items) * (1.0 - test_ratio))

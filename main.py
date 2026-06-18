@@ -1,7 +1,7 @@
-"""Ponto de entrada do AutoDRE (pipeline ponta a ponta da Entrega 1).
+"""Ponto de entrada do loan-risk-analyzer (pipeline ponta a ponta da Entrega 1).
 
-Fluxo: carrega OFX do diretório de entrada -> limpa -> classifica (baseline)
--> gera DRE -> escreve resultados no diretório de saída.
+Fluxo: carrega CSV de empréstimos -> codifica variáveis categóricas
+-> split treino/teste -> grava resultados no diretório de saída.
 
 Os diretórios vêm de variáveis de ambiente e, no container, correspondem a
 volumes montados explicitamente. O script não acessa o sistema de arquivos do
@@ -11,13 +11,12 @@ host fora desses volumes.
 from __future__ import annotations
 
 import csv
+import dataclasses
 import sys
 from pathlib import Path
 
-from src.accounting.chart import build_chart_of_accounts
-from src.accounting.dre import build_dre, format_dre
-from src.data.ofx_loader import load_directory
-from src.preprocessing.transform import clean_transactions
+from src.data.loan_loader import load_csv
+from src.preprocessing.transform import clean_dataset, split_data
 from src.utils.config import Settings
 
 
@@ -25,45 +24,50 @@ def run(settings: Settings) -> int:
     """Executa o pipeline e retorna um código de saída (0 = sucesso)."""
     settings.output_dir.mkdir(parents=True, exist_ok=True)
 
-    transactions = load_directory(settings.input_dir)
-    if not transactions:
-        print(f"Nenhuma transacao encontrada em {settings.input_dir}", file=sys.stderr)
+    records = load_csv(settings.data_path)
+    if not records:
+        print(f"Nenhum registro encontrado em {settings.data_path}", file=sys.stderr)
         return 1
 
-    cleaned = clean_transactions(transactions)
-    classified = build_chart_of_accounts(cleaned)
-    dre = build_dre(classified)
+    cleaned = clean_dataset(records)
+    train, test = split_data(cleaned)
 
-    _write_transactions_csv(settings.output_dir / "transacoes.csv", classified)
-    _write_dre_csv(settings.output_dir / "dre.csv", dre)
-    (settings.output_dir / "relatorio.txt").write_text(
-        format_dre(dre) + f"\n\nTransacoes processadas: {len(classified)}\n",
-        encoding="utf-8",
-    )
+    _write_csv(settings.output_dir / "train.csv", train)
+    _write_csv(settings.output_dir / "test.csv", test)
 
-    print(format_dre(dre))
+    summary = _build_summary(records, cleaned, train, test)
+    (settings.output_dir / "summary.txt").write_text(summary + "\n", encoding="utf-8")
+
+    print(summary)
     print(f"\nResultados gravados em: {settings.output_dir}")
     return 0
 
 
-def _write_transactions_csv(path: Path, classified) -> None:
-    with path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(["data", "valor", "tipo", "grupo", "conta", "descricao"])
-        for item in classified:
-            t = item.transaction
-            writer.writerow(
-                [t.posted_at.date(), f"{t.amount:.2f}", t.trntype,
-                 item.group, item.account, t.memo]
-            )
+def _build_summary(records, cleaned, train, test) -> str:
+    default_rate = (
+        sum(r.loan_status for r in cleaned) / len(cleaned) * 100
+        if cleaned else 0.0
+    )
+    lines = [
+        "loan-risk-analyzer — Sumário do Pré-processamento",
+        "-" * 50,
+        f"{'Registros carregados':<30} {len(records):>10}",
+        f"{'Após codificação':<30} {len(cleaned):>10}",
+        f"{'Treino':<30} {len(train):>10}",
+        f"{'Teste':<30} {len(test):>10}",
+        f"{'Taxa de default (%)':<30} {default_rate:>9.1f}%",
+    ]
+    return "\n".join(lines)
 
 
-def _write_dre_csv(path: Path, dre) -> None:
+def _write_csv(path: Path, records) -> None:
+    if not records:
+        return
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["grupo", "total"])
-        for group, total in dre.items():
-            writer.writerow([group, f"{total:.2f}"])
+        writer.writerow([f.name for f in dataclasses.fields(records[0])])
+        for r in records:
+            writer.writerow(dataclasses.astuple(r))
 
 
 def main() -> None:
