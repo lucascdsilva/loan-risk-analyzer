@@ -53,11 +53,14 @@ loan-risk-analyzer/
 │   ├── data/             # loan_loader.py
 │   ├── preprocessing/    # transform.py
 │   └── utils/            # config.py
+├── notebooks/            # Jupyter Notebooks (análise exploratória)
 ├── tests/                # unittest (test_data, test_preprocessing)
 ├── Dockerfile            # build multi-stage, non-root
 ├── docker-compose.yml    # execução endurecida (sem rede, fs read-only)
-├── requirements.in       # dependências de alto nível
+├── requirements.in       # dependências de runtime
 ├── requirements.txt      # versões fixas + hashes (--require-hashes)
+├── requirements-dev.in   # dependências de desenvolvimento (Jupyter)
+├── requirements-dev.txt  # versões fixas + hashes (dev)
 ├── Makefile
 └── main.py
 ```
@@ -80,11 +83,30 @@ Os resultados aparecem em `data/output/`. O container:
 
 ## Execução local (desenvolvimento)
 
+O Makefile detecta automaticamente o virtualenv `.venv/` e o utiliza.
+Caso ele não exista, usa o `python3` do sistema.
+
 ```bash
-python -m venv .venv && source .venv/bin/activate
+# Criar virtualenv e instalar dependências
+python3 -m venv .venv && source .venv/bin/activate
 pip install --require-hashes -r requirements.txt
+pip install --require-hashes -r requirements-dev.txt
+
+# Pipeline principal
 LOANRISK_DATA_PATH=data/loan_data.csv LOANRISK_OUTPUT_DIR=data/output python main.py
 ```
+
+### Jupyter Notebook
+
+Para rodar os notebooks localmente:
+
+```bash
+source .venv/bin/activate
+make notebook
+```
+
+As dependências do Jupyter (`matplotlib`, `seaborn`) estão em `requirements-dev.in` /
+`requirements-dev.txt` e **não** entram na imagem Docker (runtime mínimo).
 
 ## Testes
 
@@ -98,7 +120,10 @@ Saída esperada: **16 testes, OK**.
 
 - `requirements.txt` é gerado de `requirements.in` com **hashes fixados**.
   Para atualizar: `make lock`.
+- `requirements-dev.txt` é gerado de `requirements-dev.in` com **hashes fixados**.
+  Para atualizar: `make lock-dev`.
 - Auditoria de vulnerabilidades: `make audit`.
+- Jupyter Notebook: `make notebook`.
 
 ## Roadmap (próximas entregas)
 
