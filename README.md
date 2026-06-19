@@ -125,6 +125,16 @@ Saída esperada: **16 testes, OK**.
 - Auditoria de vulnerabilidades: `make audit`.
 - Jupyter Notebook: `make notebook`.
 
+## Integrantes
+
+**Grupo 16**
+- Lucas Carvalho
+- Paulo Renato Barbosa
+- Stefano Sabino Vivas da Silva
+- Pietra Oliveira
+- Lamartine Teixeira
+- Joao Gabriel de Oliveira Feitosa
+
 ## Roadmap (próximas entregas)
 
 | Etapa | Entrega |
