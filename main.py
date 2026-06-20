@@ -29,7 +29,11 @@ def run(settings: Settings) -> int:
         print(f"Nenhum registro encontrado em {settings.data_path}", file=sys.stderr)
         return 1
 
-    cleaned = clean_dataset(records)
+    encoded_dataset = encode_features(records)
+    cleaned = clean_dataset(encoded_dataset)
+    scaled_dataset = scale_features(cleaned)
+    
+
     train, test = split_data(cleaned)
 
     _write_csv(settings.output_dir / "train.csv", train)
