@@ -2,3 +2,4 @@
 # requirements.txt via pip-compile. Mantenha esta lista mínima: cada pacote é
 # superfície de ataque de supply chain.
 numpy==2.2.1
+scikit-learn>=1.3
