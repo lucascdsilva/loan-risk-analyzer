@@ -1,15 +1,11 @@
 """Carregamento do dataset de risco de crédito (CSV).
 
-Lê o arquivo CSV de empréstimos, valida as colunas esperadas e retorna
-registros como dataclasses imutáveis, prontos para o pré-processamento.
+Lê o arquivo CSV de empréstimos, retorna registros como um DataFrame Pandas.
 """
 
 from __future__ import annotations
 
-import csv
-from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 import pandas as pd
 
 EXPECTED_COLUMNS = {
@@ -21,22 +17,21 @@ EXPECTED_COLUMNS = {
 }
 
 def load_csv(path: str | Path) -> pd.DataFrame:
-    """Lê o CSV de empréstimos e retorna um Dataframe.
+    """Lê o CSV de empréstimos e retorna os registros em um DataFrame.
 
     Args:
         path: caminho do arquivo CSV.
 
     Returns:
-        Registros em um Dataframe Pandas
+        Registros em um DataFrame Pandas
 
     Raises:
-        FileNotFoundError: se o arquivo não existir.
-        ValueError: se colunas obrigatórias estiverem ausentes.
+        FileNotFoundError: se o arquivo não existir
     """
     file_path = Path(path)
     if not file_path.is_file():
         raise FileNotFoundError(f"Dataset não encontrado: {file_path}")
 
-    dataset = pd.read_csv( path )
+    dataset = pd.read_csv(path)
 
     return dataset
