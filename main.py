@@ -16,9 +16,10 @@ import sys
 from pathlib import Path
 
 from src.data.loan_loader import load_csv
-from src.preprocessing.transform import clean_dataset, split_data
+from src.preprocessing.transform import encode_features, scale_dataset, split_data
 from src.utils.config import Settings
 
+SEED = 42  # semente para embaralhamento reprodutível
 
 def run(settings: Settings) -> int:
     """Executa o pipeline e retorna um código de saída (0 = sucesso)."""
@@ -29,21 +30,20 @@ def run(settings: Settings) -> int:
         print(f"Nenhum registro encontrado em {settings.data_path}", file=sys.stderr)
         return 1
 
-    encoded_dataset = encode_features(records)
-    cleaned = clean_dataset(encoded_dataset)
-    scaled_dataset = scale_features(cleaned)
+    X, y, feature_names  = encode_features(records)
+    X_train, X_test, y_train, y_test = split_data(X, y, 0.3, SEED)
     
+    # normaliza dados
+    X_train, X_test = scale_dataset(X_train, X_test)
+    
+    # _write_csv(settings.output_dir / "train.csv", train)
+    # _write_csv(settings.output_dir / "test.csv", test)
 
-    train, test = split_data(cleaned)
+    # summary = _build_summary(records, cleaned, train, test)
+    # (settings.output_dir / "summary.txt").write_text(summary + "\n", encoding="utf-8")
 
-    _write_csv(settings.output_dir / "train.csv", train)
-    _write_csv(settings.output_dir / "test.csv", test)
-
-    summary = _build_summary(records, cleaned, train, test)
-    (settings.output_dir / "summary.txt").write_text(summary + "\n", encoding="utf-8")
-
-    print(summary)
-    print(f"\nResultados gravados em: {settings.output_dir}")
+    # print(summary)
+    # print(f"\nResultados gravados em: {settings.output_dir}")
     return 0
 
 
