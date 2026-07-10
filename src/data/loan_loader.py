@@ -6,10 +6,11 @@ registros como dataclasses imutáveis, prontos para o pré-processamento.
 
 from __future__ import annotations
 
-import csv
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
+
+import numpy as np
 
 
 EXPECTED_COLUMNS = {
@@ -58,17 +59,23 @@ def load_csv(path: str | Path) -> List[LoanRecord]:
     if not file_path.is_file():
         raise FileNotFoundError(f"Dataset não encontrado: {file_path}")
 
-    records: List[LoanRecord] = []
-    with file_path.open(newline="", encoding="utf-8") as fh:
-        reader = csv.DictReader(fh)
-        if reader.fieldnames is None:
-            return records
-        missing = EXPECTED_COLUMNS - set(reader.fieldnames)
-        if missing:
-            raise ValueError(f"Colunas ausentes no CSV: {missing}")
-        for row in reader:
-            records.append(_parse_row(row))
-    return records
+    table = np.genfromtxt(
+        file_path,
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+        comments=None,
+    )
+
+    if table.dtype.names is None:
+        return []
+    missing = EXPECTED_COLUMNS - set(table.dtype.names)
+    if missing:
+        raise ValueError(f"Colunas ausentes no CSV: {missing}")
+
+    # np.atleast_1d garante iteração mesmo quando há uma única linha de dados.
+    return [_parse_row(row) for row in np.atleast_1d(table)]
 
 
 def _parse_row(row: dict) -> LoanRecord:
