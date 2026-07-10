@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List, Sequence, Tuple
-
+import pandas as pd
 import numpy as np
 
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
 from src.data.loan_loader import LoanRecord
 
 # Escolaridade tratada como ordinal (quanto maior, mais escolaridade).
@@ -23,58 +26,52 @@ EDUCATION_ORDER = {
     "Doctorate": 4,
 }
 
+CATEGORICAL_COLUMNS = [
+    "person_gender",
+    "person_home_ownership",
+    "loan_intent",
+    "previous_loan_defaults_on_file",
+]
 
-@dataclass(frozen=True)
-class CleanedRecord:
-    """Registro com features numéricas e categóricas já codificadas."""
+def encode_features(dataset: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    """Codifica as features categóricas do dataset em valores numéricos.
 
-    person_age: float
-    person_income: float
-    person_emp_exp: int
-    loan_amnt: float
-    loan_int_rate: float
-    loan_percent_income: float
-    cb_person_cred_hist_length: float
-    credit_score: int
-    gender_female: int      # 1 = feminino, 0 = masculino
-    education_level: int    # nível ordinal de escolaridade
-    home_ownership: str     # categoria preservada (one-hot nas etapas seguintes)
-    loan_intent: str        # finalidade do empréstimo
-    previous_default: int   # 1 = "Yes", 0 = "No"
-    loan_status: int        # variável alvo: 0 = sem default, 1 = default
+    Args:
+        dataset: DataFrame com os registros de empréstimos.
 
+    Returns:
+        Tupla (features codificadas, targets, nomes das features).
+    """
+    # Label encoding considerando a ordem natural das categorias
+    dataset["person_education"] = dataset["person_education"].map(EDUCATION_ORDER)
 
-def encode_record(record: LoanRecord) -> CleanedRecord:
-    """Codifica as variáveis categóricas de um único LoanRecord."""
-    return CleanedRecord(
-        person_age=record.person_age,
-        person_income=record.person_income,
-        person_emp_exp=record.person_emp_exp,
-        loan_amnt=record.loan_amnt,
-        loan_int_rate=record.loan_int_rate,
-        loan_percent_income=record.loan_percent_income,
-        cb_person_cred_hist_length=record.cb_person_cred_hist_length,
-        credit_score=record.credit_score,
-        gender_female=1 if record.person_gender.lower() == "female" else 0,
-        education_level=EDUCATION_ORDER.get(record.person_education, -1),
-        home_ownership=record.person_home_ownership,
-        loan_intent=record.loan_intent,
-        previous_default=1 if record.previous_loan_defaults_on_file == "Yes" else 0,
-        loan_status=record.loan_status,
+    #One Hot Encoding
+    transformer = ColumnTransformer(
+        transformers = [
+            ('one_hot', OneHotEncoder(sparse_output=False), CATEGORICAL_COLUMNS)
+        ], remainder='passthrough' # Mantém as outras colunas (como 'Valor') sem alterações
+        , verbose_feature_names_out=False
     )
+    encoded_dataset = transformer.fit_transform(dataset)
 
+    # Separando features e target
+    features = encoded_dataset[:,:-1]
+    target = encoded_dataset[:,-1].astype(int)
+    feature_names = transformer.get_feature_names_out()
+    feature_names = feature_names[:-1]
+        
+    return features, target, feature_names
 
-def clean_dataset(records: Sequence[LoanRecord]) -> List[CleanedRecord]:
-    """Codifica todos os registros, descartando linhas com erro de parsing."""
-    result: List[CleanedRecord] = []
-    for r in records:
-        try:
-            result.append(encode_record(r))
-        except (ValueError, KeyError):
-            continue
-    return result
+def clean_dataset(records: np.ndarray) -> np.ndarray:
+    """Descarta/ajusta dados faltantes ou inconsistentes."""
 
+def scale_dataset(X_train: np.ndarray, X_test: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Aplica normalização às features numéricas."""
+    # Atenção para vazamento de dados. Só aplicar fit nos dados de treino
+    #TODO: Implementar normalização
+    return X_train, X_test
 
+    
 # Features numéricas e ordinais já prontas para entrar direto na matriz.
 NUMERIC_FEATURES = (
     "person_age", "person_income", "person_emp_exp", "loan_amnt",
@@ -131,22 +128,26 @@ def build_feature_matrix(
 
 
 def split_data(
-    records: Sequence[CleanedRecord],
-    test_ratio: float = 0.2,
-    seed: int = 42,
-) -> Tuple[List[CleanedRecord], List[CleanedRecord]]:
-    """Divide os registros em treino e teste de forma determinística.
+    X: np.ndarray,
+    y: np.ndarray,
+    test_ratio: float,
+    random_state: int,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Divide os registros em treino e teste
 
     Args:
-        records: registros já pré-processados.
+        X: features do dataset.
+        y: targets do dataset.
         test_ratio: fração reservada para teste (0 < ratio < 1).
-        seed: semente para embaralhamento reprodutível.
+        random_state: semente para embaralhamento reprodutível.
 
     Returns:
-        Tupla (treino, teste).
+        Tupla (X_train, X_test, y_train, y_test).
     """
     if not 0.0 < test_ratio < 1.0:
         raise ValueError("test_ratio deve estar entre 0 e 1.")
+
+    """ return train_test_split(X, y, test_size=test_ratio, stratify=y, random_state=random_state) """
     items = list(records)
     rng = np.random.default_rng(seed)
     order = rng.permutation(len(items))
