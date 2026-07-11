@@ -16,7 +16,12 @@ import sys
 from pathlib import Path
 
 from src.data.loan_loader import load_csv
-from src.preprocessing.transform import encode_features, scale_dataset, split_data
+from src.preprocessing.transform import (
+    build_feature_matrix,
+    clean_dataset,
+    scale_dataset,
+    split_data,
+)
 from src.utils.config import Settings
 
 SEED = 42  # semente para embaralhamento reprodutível
@@ -30,8 +35,12 @@ def run(settings: Settings) -> int:
         print(f"Nenhum registro encontrado em {settings.data_path}", file=sys.stderr)
         return 1
 
-    X, y, feature_names  = encode_features(records)
-    X_train, X_test, y_train, y_test = split_data(X, y, 0.3, SEED)
+    cleaned = clean_dataset(records)
+    train_recs, test_recs = split_data(cleaned, 0.2, SEED)
+
+    # Vetorização das features com NumPy.
+    X_train, y_train, feature_names = build_feature_matrix(train_recs)
+    X_test, y_test, _ = build_feature_matrix(test_recs)
     
     # normaliza dados
     X_train, X_test = scale_dataset(X_train, X_test)
