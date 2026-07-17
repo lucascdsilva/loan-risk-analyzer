@@ -1,6 +1,12 @@
 # Dependências de desenvolvimento — Jupyter Notebook e visualização.
 # Não são necessárias para o runtime em container.
 # Versões fixas e hashes são geradas via pip-compile em requirements-dev.txt.
+numpy>=2.3.3
+scikit-learn>=1.3
+pandas>=3.0.3
 jupyter==1.1.1
 matplotlib==3.9.2
 seaborn==0.13.2
+torch>=2.0
+torchmetrics
+pip-tools
