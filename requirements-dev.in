@@ -9,4 +9,5 @@ matplotlib==3.9.2
 seaborn==0.13.2
 torch>=2.0
 torchmetrics
+imbalanced-learn
 pip-tools
