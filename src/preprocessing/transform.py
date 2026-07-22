@@ -13,9 +13,10 @@ import pandas as pd
 import numpy as np
 
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from imblearn.over_sampling import SMOTE
 from src.data.loan_loader import LoanRecord
+from src.utils.config import RANDOM_SEED
 
 # Escolaridade tratada como ordinal (quanto maior, mais escolaridade).
 EDUCATION_ORDER = {
@@ -32,7 +33,6 @@ CATEGORICAL_COLUMNS = [
     "loan_intent",
     "previous_loan_defaults_on_file",
 ]
-
 
 @dataclass(frozen=True)
 class CleanedRecord:
@@ -73,7 +73,6 @@ def encode_record(record: LoanRecord) -> CleanedRecord:
         loan_status=record.loan_status,
     )
 
-
 def encode_features(dataset: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, List[str]]:
     """Codifica as features categóricas do dataset em valores numéricos.
 
@@ -90,18 +89,22 @@ def encode_features(dataset: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, List
     transformer = ColumnTransformer(
         transformers = [
             ('one_hot', OneHotEncoder(sparse_output=False), CATEGORICAL_COLUMNS)
-        ], remainder='passthrough' # Mantém as outras colunas (como 'Valor') sem alterações
+        ], remainder='passthrough' # Mantém as outras colunas sem alterações
         , verbose_feature_names_out=False
     )
     encoded_dataset = transformer.fit_transform(dataset)
 
-    # Separando features e target
+    # Criando um novo DataFrame com os nomes corretos das colunas
     features = encoded_dataset[:,:-1]
     target = encoded_dataset[:,-1].astype(int)
     feature_names = transformer.get_feature_names_out()
     feature_names = feature_names[:-1]
         
     return features, target, feature_names
+
+def smote_oversampling(X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    smote = SMOTE(random_state=RANDOM_SEED)
+    return smote.fit_resample(X, y)
 
 def clean_dataset(records: Sequence[LoanRecord]) -> List[CleanedRecord]:
     """Codifica todos os registros, descartando linhas com erro de parsing."""
@@ -113,12 +116,19 @@ def clean_dataset(records: Sequence[LoanRecord]) -> List[CleanedRecord]:
             continue
     return result
 
-
-def scale_dataset(X_train: np.ndarray, X_test: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def scale_dataset(
+        X_train: np.ndarray, 
+        y_train: np.ndarray, 
+        X_test: np.ndarray, 
+        y_test: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Aplica normalização às features numéricas."""
     # Atenção para vazamento de dados. Só aplicar fit nos dados de treino
-    #TODO: Implementar normalização
-    return X_train, X_test
+    scaler = StandardScaler()
+    scaler.fit(X_train, y_train)
+    X_train_scaled = scaler.transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    return X_train_scaled, X_test_scaled
 
     
 # Features numéricas e ordinais já prontas para entrar direto na matriz.

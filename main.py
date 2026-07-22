@@ -13,46 +13,56 @@ from __future__ import annotations
 import csv
 import dataclasses
 import sys
+import torch
 from pathlib import Path
-
+from sklearn.model_selection import train_test_split
 from src.data.loan_loader import load_csv
 from src.preprocessing.transform import (
-    build_feature_matrix,
-    clean_dataset,
+    smote_oversampling,
     scale_dataset,
-    split_data,
+    encode_features
 )
-from src.utils.config import Settings
-
-SEED = 42  # semente para embaralhamento reprodutível
+from src.training.train import to_tensor, train_nn
+from src.models.model import NeuralNetworkV0
+from src.inference.inference import predict
+from src.utils.config import Settings, RANDOM_SEED
+from src.evaluation.metrics import evaluate_model
 
 def run(settings: Settings) -> int:
     """Executa o pipeline e retorna um código de saída (0 = sucesso)."""
     settings.output_dir.mkdir(parents=True, exist_ok=True)
 
     records = load_csv(settings.data_path)
-    if not records:
+    if records.empty:
         print(f"Nenhum registro encontrado em {settings.data_path}", file=sys.stderr)
         return 1
 
-    cleaned = clean_dataset(records)
-    train_recs, test_recs = split_data(cleaned, 0.2, SEED)
+    # Codifica variáveis categóricas. Retorna dataset como vetores NumPy
+    X, y, features_names = encode_features(records)
 
-    # Vetorização das features com NumPy.
-    X_train, y_train, feature_names = build_feature_matrix(train_recs)
-    X_test, y_test, _ = build_feature_matrix(test_recs)
-    
-    # normaliza dados
-    X_train, X_test = scale_dataset(X_train, X_test)
-    
-    # _write_csv(settings.output_dir / "train.csv", train)
-    # _write_csv(settings.output_dir / "test.csv", test)
+    # Separação de conjuntos de treinamento e teste
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=RANDOM_SEED)
 
-    # summary = _build_summary(records, cleaned, train, test)
-    # (settings.output_dir / "summary.txt").write_text(summary + "\n", encoding="utf-8")
+    # Oversampling devido ao desbalanceamento nos dados
+    X_train, y_train = smote_oversampling(X_train, y_train)
 
-    # print(summary)
-    # print(f"\nResultados gravados em: {settings.output_dir}")
+    # Normalização dos dados
+    X_train, X_test = scale_dataset(X_train, y_train, X_test, y_test)
+
+    # Converte arrays NumPy em tensores PyTorch
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor = to_tensor(X_train, y_train, X_test, y_test, device)
+
+    # Treina a rede neural
+    nn_model = NeuralNetworkV0().to(device)
+    train_nn(3000, nn_model, 0.01, X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor)
+
+    # Classifica dados de teste
+    test_pred = predict(nn_model, X_test_tensor)
+
+    # Exibe métricas do modelo para o conjunto de testes
+    evaluate_model(device, y_test_tensor, test_pred)
+
     return 0
 
 
@@ -81,7 +91,6 @@ def _write_csv(path: Path, records) -> None:
         writer.writerow([f.name for f in dataclasses.fields(records[0])])
         for r in records:
             writer.writerow(dataclasses.astuple(r))
-
 
 def main() -> None:
     """Função principal."""

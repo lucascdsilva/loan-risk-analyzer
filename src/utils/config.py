@@ -13,7 +13,6 @@ from pathlib import Path
 
 RANDOM_SEED: int = 42
 
-
 @dataclass(frozen=True)
 class Settings:
     """Configurações imutáveis derivadas do ambiente."""
