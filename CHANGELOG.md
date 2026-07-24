@@ -10,13 +10,54 @@ e o versionamento segue [SemVer](https://semver.org/lang/pt-BR/), onde cada
 |--------|---------|--------|
 | [v0.1.0](#v010--entrega-1) | Entrega 1 — pré-processamento e base de execução | Concluída |
 | [v0.2.0](#v020--etapa-4) | Etapa 4 — vetorização com NumPy | Concluída |
-| _planejado_ | Etapa 5–6 — classificador neural (PyTorch) | — |
+| [v0.3.0](#v030--etapa-56) | Etapa 5–6 — classificador neural (PyTorch) | Concluída |
 | _planejado_ | Etapa 7 — experimentos e hiperparâmetros | — |
 | _planejado_ | Etapas 9–11 — visão, requisitos e arquitetura → **v1.0.0** | — |
 
 ## [Unreleased]
 
-_Sem mudanças registradas. Próxima entrega: Etapa 5–6 — classificador neural (PyTorch)._
+_Sem mudanças registradas. Próxima entrega: Etapa 7 — experimentos e hiperparâmetros._
+
+## [v0.3.0] — Etapa 5–6
+
+_2026-07-24_
+
+### Classificador neural com PyTorch
+
+Treinamento de um classificador neural para o risco de default, com o pipeline
+do notebook exploratório extraído para um pacote `src/` modular e executável
+ponta a ponta via `main.py`. Inclui balanceamento de classes, avaliação com
+torchmetrics e persistência do modelo treinado.
+
+#### Adicionado
+
+- **`NeuralNetworkV0`** (`src/models/NeuralNetworkV0.py`) — MLP com uma camada
+  oculta (23 features → 20 neurônios com ReLU → 1 saída), retornando logits.
+- **`train_nn`**, **`to_tensor`** e **`accuracy_fn`** (`src/training/train.py`) —
+  loop de treinamento com otimizador `Adam` e `BCEWithLogitsLoss`, conversão de
+  arrays NumPy em tensores e código _device-agnostic_ (CPU/GPU).
+- **`predict`** (`src/inference/inference.py`) — inferência em modo
+  `inference_mode` (logits → sigmoid → predições binárias `int32`).
+- **`evaluate_model`** (`src/evaluation/metrics.py`) — avaliação com
+  `torchmetrics` (Accuracy, Precision, Recall, F1-Score binários).
+- **`smote_oversampling`** e **`scale_dataset`** (`src/preprocessing/transform.py`) —
+  balanceamento de classes com `SMOTE` aplicado somente no treino (evita
+  vazamento) e normalização com `StandardScaler`.
+- **`save_model`** (`main.py`) e **`models_dir`** em `Settings`
+  (`src/utils/config.py`) — persistência dos pesos (`state_dict`) em
+  `data/models/neural_network_V0.pth`, versionado no repositório.
+- Baselines (`DummyClassifier`, k-NN) e redução de dimensionalidade com PCA no
+  notebook exploratório (`notebooks/loan-risk-analyzer-lamartine.ipynb`).
+- `torch>=2.0` e `imbalanced-learn` promovidos a dependências de **runtime**
+  (`requirements.in`); `torchmetrics` adicionado às dependências de
+  desenvolvimento (`requirements-dev.in`).
+
+#### Alterado
+
+- `main.py` — o pipeline passa a treinar a rede neural:
+  `encode_features → train_test_split → SMOTE → scale → treino PyTorch →
+  persistência → avaliação`.
+- `src/models/model.py` renomeado para `src/models/NeuralNetworkV0.py`.
 
 ## [v0.2.0] — Etapa 4
 
@@ -112,6 +153,7 @@ isolada em container.
 - Projeto resultante do pivot para **análise de risco de empréstimos**
   (antes: cálculo de DRE).
 
-[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/lucascdsilva/auto-dre/releases/tag/v0.1.0
