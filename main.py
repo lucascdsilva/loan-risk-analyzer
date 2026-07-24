@@ -10,10 +10,9 @@ host fora desses volumes.
 
 from __future__ import annotations
 
-import csv
-import dataclasses
 import sys
 import torch
+from torch import nn
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from src.data.loan_loader import load_csv
@@ -23,7 +22,7 @@ from src.preprocessing.transform import (
     encode_features
 )
 from src.training.train import to_tensor, train_nn
-from src.models.model import NeuralNetworkV0
+from src.models.NeuralNetworkV0 import NeuralNetworkV0
 from src.inference.inference import predict
 from src.utils.config import Settings, RANDOM_SEED
 from src.evaluation.metrics import evaluate_model
@@ -49,13 +48,18 @@ def run(settings: Settings) -> int:
     # Normalização dos dados
     X_train, X_test = scale_dataset(X_train, y_train, X_test, y_test)
 
-    # Converte arrays NumPy em tensores PyTorch
+    # Verifica a disponibilidade de GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Converte arrays NumPy em tensores PyTorch (já envia para a GPU, caso esteja disponível)
     X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor = to_tensor(X_train, y_train, X_test, y_test, device)
 
     # Treina a rede neural
     nn_model = NeuralNetworkV0().to(device)
     train_nn(3000, nn_model, 0.01, X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor)
+
+    # Salva o modelo
+    save_model(nn_model, settings.models_dir / "neural_network_V0.pth")
 
     # Classifica dados de teste
     test_pred = predict(nn_model, X_test_tensor)
@@ -65,6 +69,11 @@ def run(settings: Settings) -> int:
 
     return 0
 
+
+def save_model(model: nn.Module, path: Path) -> None:
+    """Salva os pesos do modelo (state_dict) no caminho especificado."""
+    torch.save(model.state_dict(), path)
+    print(f"\nModelo salvo em {path}")
 
 def _build_summary(records, cleaned, train, test) -> str:
     default_rate = (
@@ -81,16 +90,6 @@ def _build_summary(records, cleaned, train, test) -> str:
         f"{'Taxa de default (%)':<30} {default_rate:>9.1f}%",
     ]
     return "\n".join(lines)
-
-
-def _write_csv(path: Path, records) -> None:
-    if not records:
-        return
-    with path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh)
-        writer.writerow([f.name for f in dataclasses.fields(records[0])])
-        for r in records:
-            writer.writerow(dataclasses.astuple(r))
 
 def main() -> None:
     """Função principal."""

@@ -35,7 +35,8 @@ def train_nn(epochs: int, model: nn.Module, learning_rate: float, X_train: torch
     #optimizer = torch.optim.SGD(params=nn_model.parameters(), lr=0.01) # taxa de aprendizado 0.01
     optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
     loss_fn = nn.BCEWithLogitsLoss() # BCEWithLogitsLoss = sigmoid built-in
-    
+
+    print("\n--- Treinamento ---")
     for epoch in range(epochs):
         model.train()
         # 1. Forward pass (model outputs raw logits)

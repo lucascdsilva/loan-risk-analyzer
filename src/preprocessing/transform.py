@@ -122,7 +122,7 @@ def scale_dataset(
         X_test: np.ndarray, 
         y_test: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Aplica normalização às features numéricas."""
-    # Atenção para vazamento de dados. Só aplicar fit nos dados de treino
+    # Atenção para vazamento de dados. Só aplica fit nos dados de treino
     scaler = StandardScaler()
     scaler.fit(X_train, y_train)
     X_train_scaled = scaler.transform(X_train)

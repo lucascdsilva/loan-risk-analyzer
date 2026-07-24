@@ -20,7 +20,7 @@ def evaluate_model(device: str, y: torch.Tensor, y_pred: torch.Tensor) -> None:
     y = y.to(torch.int32)
     metrics_result = metrics(y_pred, y)
 
-    print("--- Desempenho do modelo ---")
+    print("\n--- Desempenho do modelo ---")
     for name, value in metrics_result.items():
         print(f"{name}: {value:.4f}")
 

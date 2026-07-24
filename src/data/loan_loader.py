@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 import numpy as np
+import csv
+import dataclasses
 
 
 EXPECTED_COLUMNS = {
@@ -58,6 +60,15 @@ def load_csv(path: str | Path) -> pd.DataFrame:
         raise FileNotFoundError(f"Dataset não encontrado: {file_path}")
 
     return pd.read_csv(path)
+
+def _write_csv(path: Path, records) -> None:
+    if not records:
+        return
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow([f.name for f in dataclasses.fields(records[0])])
+        for r in records:
+            writer.writerow(dataclasses.astuple(r))
 
 def _parse_row(row: np.void) -> LoanRecord:
     return LoanRecord(
