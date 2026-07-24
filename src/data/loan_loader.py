@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 import numpy as np
+import csv
+import dataclasses
 
 
 EXPECTED_COLUMNS = {
@@ -57,26 +59,16 @@ def load_csv(path: str | Path) -> pd.DataFrame:
     if not file_path.is_file():
         raise FileNotFoundError(f"Dataset não encontrado: {file_path}")
 
-    # dataset = pd.read_csv(path)
-    # return dataset
-    table = np.genfromtxt(
-        file_path,
-        delimiter=",",
-        names=True,
-        dtype=None,
-        encoding="utf-8",
-        comments=None,
-    )
+    return pd.read_csv(path)
 
-    if table.dtype.names is None:
-        return []
-    missing = EXPECTED_COLUMNS - set(table.dtype.names)
-    if missing:
-        raise ValueError(f"Colunas ausentes no CSV: {missing}")
-
-    # np.atleast_1d garante iteração mesmo quando há uma única linha de dados.
-    return [_parse_row(row) for row in np.atleast_1d(table)]
-
+def _write_csv(path: Path, records) -> None:
+    if not records:
+        return
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow([f.name for f in dataclasses.fields(records[0])])
+        for r in records:
+            writer.writerow(dataclasses.astuple(r))
 
 def _parse_row(row: np.void) -> LoanRecord:
     return LoanRecord(

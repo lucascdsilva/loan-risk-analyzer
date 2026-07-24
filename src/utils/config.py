@@ -13,13 +13,13 @@ from pathlib import Path
 
 RANDOM_SEED: int = 42
 
-
 @dataclass(frozen=True)
 class Settings:
     """Configurações imutáveis derivadas do ambiente."""
 
     data_path: Path
     output_dir: Path
+    models_dir: Path
 
     @staticmethod
     def from_env() -> "Settings":
@@ -35,4 +35,7 @@ class Settings:
         output_dir = Path(
             os.environ.get("LOANRISK_OUTPUT_DIR", "data/output")
         )
-        return Settings(data_path=data_path, output_dir=output_dir)
+        models_dir = Path(
+                    os.environ.get("LOANRISK_MODELS_DIR", "data/models")
+                )
+        return Settings(data_path=data_path, output_dir=output_dir, models_dir=models_dir)
