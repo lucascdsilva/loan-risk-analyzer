@@ -50,11 +50,13 @@ def run(settings: Settings) -> int:
 
     # Verifica a disponibilidade de GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"\nDevice disponível: {device}")
 
     # Converte arrays NumPy em tensores PyTorch (já envia para a GPU, caso esteja disponível)
     X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor = to_tensor(X_train, y_train, X_test, y_test, device)
 
     # Treina a rede neural
+    torch.manual_seed(RANDOM_SEED)
     nn_model = NeuralNetworkV0().to(device)
     train_nn(3000, nn_model, 0.01, X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor)
 
