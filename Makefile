@@ -19,7 +19,7 @@ build:
 
 # Executa o pipeline no container isolado (sem rede, fs read-only).
 run:
-	docker compose run --rm loan-risk-analyzer
+	LOANRISK_UID=$(shell id -u) LOANRISK_GID=$(shell id -g) docker compose run --rm loan-risk-analyzer
 
 # Auditoria de vulnerabilidades nas dependencias travadas (supply chain).
 audit:

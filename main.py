@@ -18,18 +18,23 @@ from sklearn.model_selection import train_test_split
 from src.data.loan_loader import load_csv
 from src.preprocessing.transform import (
     smote_oversampling,
-    scale_dataset,
-    encode_features
+    fit_encoder,
+    fit_scaler,
 )
 from src.training.train import to_tensor, train_nn
 from src.models.NeuralNetworkV0 import NeuralNetworkV0
-from src.inference.inference import predict
+from src.inference.inference import predict_proba
 from src.utils.config import Settings, RANDOM_SEED
 from src.evaluation.metrics import evaluate_model
+from src.export.bundle import export_bundle
+
+EPOCHS = 3000
+LEARNING_RATE = 0.01
 
 def run(settings: Settings) -> int:
     """Executa o pipeline e retorna um código de saída (0 = sucesso)."""
     settings.output_dir.mkdir(parents=True, exist_ok=True)
+    settings.models_dir.mkdir(parents=True, exist_ok=True)
 
     records = load_csv(settings.data_path)
     if records.empty:
@@ -37,7 +42,8 @@ def run(settings: Settings) -> int:
         return 1
 
     # Codifica variáveis categóricas. Retorna dataset como vetores NumPy
-    X, y, features_names = encode_features(records)
+    encoder, X, y, feature_names = fit_encoder(records)
+    print(f"Features: {X.shape[1]} — {', '.join(feature_names)}")
 
     # Separação de conjuntos de treinamento e teste
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=RANDOM_SEED)
@@ -46,7 +52,8 @@ def run(settings: Settings) -> int:
     X_train, y_train = smote_oversampling(X_train, y_train)
 
     # Normalização dos dados
-    X_train, X_test = scale_dataset(X_train, y_train, X_test, y_test)
+    scaler = fit_scaler(X_train)
+    X_train, X_test = scaler.transform(X_train), scaler.transform(X_test)
 
     # Verifica a disponibilidade de GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -54,18 +61,36 @@ def run(settings: Settings) -> int:
     # Converte arrays NumPy em tensores PyTorch (já envia para a GPU, caso esteja disponível)
     X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor = to_tensor(X_train, y_train, X_test, y_test, device)
 
+    # Semeia ANTES de construir a rede: fonte de aleatoriedade restante do treino
+    torch.manual_seed(RANDOM_SEED)
+
     # Treina a rede neural
-    nn_model = NeuralNetworkV0().to(device)
-    train_nn(3000, nn_model, 0.01, X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor)
+    nn_model = NeuralNetworkV0(in_features=X.shape[1]).to(device)
+    train_nn(EPOCHS, nn_model, LEARNING_RATE, X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor)
 
     # Salva o modelo
     save_model(nn_model, settings.models_dir / "neural_network_V0.pth")
 
-    # Classifica dados de teste
-    test_pred = predict(nn_model, X_test_tensor)
+    # Estima a probabilidade de default no conjunto de teste
+    test_proba = predict_proba(nn_model, X_test_tensor)
 
     # Exibe métricas do modelo para o conjunto de testes
-    evaluate_model(device, y_test_tensor, test_pred)
+    metrics = evaluate_model(device, y_test_tensor, test_proba)
+
+    # Empacota modelo + pré-processamento + métricas para o serviço de inferência 
+    bundle_dir = export_bundle(
+        output_dir=settings.models_dir / "bundle",
+        model=nn_model,
+        scaler=scaler,
+        encoder=encoder,
+        records=records,
+        feature_names=feature_names,
+        metrics=metrics,
+        dataset_path=settings.data_path,
+        epochs=EPOCHS,
+        learning_rate=LEARNING_RATE,
+    )
+    print(f"\nBundle de inferência exportado em {bundle_dir}")
 
     return 0
 

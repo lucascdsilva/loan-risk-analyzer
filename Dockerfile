@@ -39,7 +39,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     LOANRISK_DATA_PATH=/data/loan_data.csv \
-    LOANRISK_OUTPUT_DIR=/data/output
+    LOANRISK_OUTPUT_DIR=/data/output \
+    LOANRISK_MODELS_DIR=/data/models
 
 # Usuario non-root sem shell de login.
 RUN groupadd --system app && \
@@ -54,7 +55,7 @@ COPY src/ ./src/
 COPY main.py ./
 
 # Pontos de montagem dos volumes de dados.
-RUN mkdir -p /data/input /data/output && chown -R app:app /data /app
+RUN mkdir -p /data/input /data/output /data/models && chown -R app:app /data /app
 
 USER app
 

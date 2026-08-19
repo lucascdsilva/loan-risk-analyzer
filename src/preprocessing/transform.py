@@ -8,7 +8,7 @@ entra nas etapas seguintes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 import pandas as pd
 import numpy as np
 
@@ -27,12 +27,111 @@ EDUCATION_ORDER = {
     "Doctorate": 4,
 }
 
-CATEGORICAL_COLUMNS = [
-    "person_gender",
-    "person_home_ownership",
-    "loan_intent",
-    "previous_loan_defaults_on_file",
-]
+# ---------------------------------------------------------------------------
+# Contrato de features (v0.4.0) — 21 colunas
+# ---------------------------------------------------------------------------
+
+TARGET_COLUMN = "loan_status"
+
+# Descartado: gênero não é usado como variável de decisão de crédito.
+DROPPED_COLUMNS: Tuple[str, ...] = ("person_gender",)
+
+# Categorias fixadas explicitamente. Garante as mesmas 21 colunas no
+# treino e na inferência de um único registro
+ONE_HOT_CATEGORIES: Dict[str, List[str]] = {
+    "person_home_ownership": ["MORTGAGE", "OTHER", "OWN", "RENT"],
+    "loan_intent": [
+        "DEBTCONSOLIDATION", "EDUCATION", "HOMEIMPROVEMENT",
+        "MEDICAL", "PERSONAL", "VENTURE",
+    ],
+    "previous_loan_defaults_on_file": ["No", "Yes"],
+}
+
+CATEGORICAL_COLUMNS = list(ONE_HOT_CATEGORIES)
+
+N_FEATURES = sum(len(c) for c in ONE_HOT_CATEGORIES.values()) + 9
+
+
+def build_encoder() -> ColumnTransformer:
+    """Cria o codificador de features (ainda não ajustado).
+
+    One-hot nas categóricas com categorias fixas, ``passthrough`` no resto.
+    """
+    return ColumnTransformer(
+        transformers=[(
+            "one_hot",
+            OneHotEncoder(
+                categories=[ONE_HOT_CATEGORIES[c] for c in CATEGORICAL_COLUMNS],
+                sparse_output=False,
+                handle_unknown="error",
+            ),
+            CATEGORICAL_COLUMNS,
+        )],
+        remainder="passthrough",
+        verbose_feature_names_out=False,
+    )
+
+
+def prepare_frame(dataset: pd.DataFrame) -> pd.DataFrame:
+    """Descarta colunas fora do contrato e aplica a escala ordinal.
+    Raises:
+        ValueError: se aparecer uma escolaridade fora de ``EDUCATION_ORDER``.
+    """
+    prepared = dataset.drop(
+        columns=[c for c in DROPPED_COLUMNS if c in dataset.columns]
+    )
+
+    education = prepared["person_education"].map(EDUCATION_ORDER)
+    if education.isna().any():
+        desconhecidas = sorted(
+            set(prepared.loc[education.isna(), "person_education"])
+        )
+        raise ValueError(f"Escolaridade desconhecida: {desconhecidas}")
+    prepared["person_education"] = education
+
+    return prepared
+
+
+def fit_encoder(
+    dataset: pd.DataFrame,
+) -> Tuple[ColumnTransformer, np.ndarray, np.ndarray, List[str]]:
+    """Ajusta o codificador no dataset de treino.
+
+    Args:
+        dataset: DataFrame com as colunas do CSV, incluindo ``loan_status``.
+
+    Returns:
+        Tupla ``(encoder, X, y, feature_names)``. O ``encoder`` retornado é o
+        artefato que precisa ser persistido para que a inferência reproduza
+        exatamente esta transformação.
+    """
+    prepared = prepare_frame(dataset)
+    target = prepared[TARGET_COLUMN].to_numpy(dtype=np.int64)
+    features_df = prepared.drop(columns=[TARGET_COLUMN])
+
+    encoder = build_encoder()
+    features = encoder.fit_transform(features_df).astype(np.float64)
+
+    return encoder, features, target, list(encoder.get_feature_names_out())
+
+
+def transform_records(
+    encoder: ColumnTransformer, dataset: pd.DataFrame
+) -> np.ndarray:
+    """Aplica um codificador já ajustado a registros novos.
+
+    Diferente de :func:`fit_encoder`, não exige ``loan_status`` — é o caminho
+    usado na inferência, onde o alvo é justamente o que se quer estimar.
+    """
+    prepared = prepare_frame(dataset)
+    features_df = prepared.drop(columns=[TARGET_COLUMN], errors="ignore")
+    return encoder.transform(features_df).astype(np.float64)
+
+
+def fit_scaler(X_train: np.ndarray) -> StandardScaler:
+    """Ajusta a normalização **somente** no treino, para evitar vazamento. """
+    return StandardScaler().fit(X_train)
+
 
 @dataclass(frozen=True)
 class CleanedRecord:
@@ -73,35 +172,6 @@ def encode_record(record: LoanRecord) -> CleanedRecord:
         loan_status=record.loan_status,
     )
 
-def encode_features(dataset: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, List[str]]:
-    """Codifica as features categóricas do dataset em valores numéricos.
-
-    Args:
-        dataset: DataFrame com os registros de empréstimos.
-
-    Returns:
-        Tupla (features codificadas, targets, nomes das features).
-    """
-    # Label encoding considerando a ordem natural das categorias
-    dataset["person_education"] = dataset["person_education"].map(EDUCATION_ORDER)
-
-    #One Hot Encoding
-    transformer = ColumnTransformer(
-        transformers = [
-            ('one_hot', OneHotEncoder(sparse_output=False), CATEGORICAL_COLUMNS)
-        ], remainder='passthrough' # Mantém as outras colunas sem alterações
-        , verbose_feature_names_out=False
-    )
-    encoded_dataset = transformer.fit_transform(dataset)
-
-    # Criando um novo DataFrame com os nomes corretos das colunas
-    features = encoded_dataset[:,:-1]
-    target = encoded_dataset[:,-1].astype(int)
-    feature_names = transformer.get_feature_names_out()
-    feature_names = feature_names[:-1]
-        
-    return features, target, feature_names
-
 def smote_oversampling(X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     smote = SMOTE(random_state=RANDOM_SEED)
     return smote.fit_resample(X, y)
@@ -115,22 +185,6 @@ def clean_dataset(records: Sequence[LoanRecord]) -> List[CleanedRecord]:
         except (ValueError, KeyError):
             continue
     return result
-
-def scale_dataset(
-        X_train: np.ndarray, 
-        y_train: np.ndarray, 
-        X_test: np.ndarray, 
-        y_test: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Aplica normalização às features numéricas."""
-    # Atenção para vazamento de dados. Só aplica fit nos dados de treino
-    scaler = StandardScaler()
-    scaler.fit(X_train, y_train)
-    X_train_scaled = scaler.transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
-    return X_train_scaled, X_test_scaled
-
-    
 # Features numéricas e ordinais já prontas para entrar direto na matriz.
 NUMERIC_FEATURES = (
     "person_age", "person_income", "person_emp_exp", "loan_amnt",

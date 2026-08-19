@@ -24,8 +24,10 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # Garante usuario non-root mesmo que a imagem seja alterada.
-    user: "app"
+    # Garante usuario non-root mesmo que a imagem seja alterada. Usa o uid/gid
+    # do host (injetados pelo Makefile) para que os bind mounts graváveis nao
+    # precisem de permissao 777 e os artefatos gerados pertencam ao usuario.
+    user: "${LOANRISK_UID:-1000}:${LOANRISK_GID:-1000}"
 
     # Limites de recursos: contem um eventual loop/consumo malicioso.
     pids_limit: 256
@@ -46,3 +48,7 @@ services:
       - type: bind
         source: ./data/output
         target: /data/output
+      # Pesos do modelo treinado: gravavel, isolado da saida de dados.
+      - type: bind
+        source: ./data/models
+        target: /data/models
