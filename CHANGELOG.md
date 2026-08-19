@@ -11,12 +11,115 @@ e o versionamento segue [SemVer](https://semver.org/lang/pt-BR/), onde cada
 | [v0.1.0](#v010--entrega-1) | Entrega 1 — pré-processamento e base de execução | Concluída |
 | [v0.2.0](#v020--etapa-4) | Etapa 4 — vetorização com NumPy | Concluída |
 | [v0.3.0](#v030--etapa-56) | Etapa 5–6 — classificador neural (PyTorch) | Concluída |
+| [v0.4.0](#v040--bloco-a) | Bloco A — o modelo como componente publicável | Concluída (release pendente) |
 | _planejado_ | Etapa 7 — experimentos e hiperparâmetros | — |
 | _planejado_ | Etapas 9–11 — visão, requisitos e arquitetura → **v1.0.0** | — |
 
 ## [Unreleased]
 
-_Sem mudanças registradas. Próxima entrega: Etapa 7 — experimentos e hiperparâmetros._
+_Sem mudanças registradas desde a `v0.4.0`. Pendente: publicar o Release
+`v0.4.0` com o bundle anexado (item A7 do plano de arquitetura)._
+
+## [v0.4.0] — Bloco A
+
+_2026-08-18_
+
+### O modelo como componente publicável
+
+Este repositório deixa de ser apenas um pipeline de treino e passa a **publicar
+um artefato versionado** que os demais projetos consomem: o **contrato de features foi fechado em 21 colunas** e o
+pré-processamento virou um objeto **ajustado e persistido**, em vez de uma
+função reaplicada de memória na inferência.
+
+#### Adicionado
+
+- **`export_bundle`** (`src/export/bundle.py`) — item A2. Gera
+  `data/models/bundle/` (48 KB), autocontido:
+  - `model.onnx` — `StandardScaler` + rede + `sigmoid` **dentro do grafo**
+    (opset 17, eixo de batch dinâmico, `external_data=False`). O serviço
+    consumidor não reimplementa a normalização nem depende de arquivo irmão.
+  - `preprocessing.json` — categorias fixas, escala ordinal e ordem das
+    21 features, de forma declarativa.
+  - `model_card.json` — versões, arquitetura, hiperparâmetros, dataset e
+    métricas da versão.
+  - `golden.json` — 50 registros crus de referência (completados com uma linha
+    para cada par _coluna × categoria_ ausente) e a probabilidade esperada,
+    **gerada pelo próprio ONNX** para que a verificação compare `onnxruntime`
+    com `onnxruntime`.
+  - `SHA256SUMS` — integridade dos quatro arquivos.
+- **`build_encoder`, `prepare_frame`, `fit_encoder`, `transform_records`**
+  (`src/preprocessing/transform.py`) — item A1: separação `fit`/`transform`,
+  `OneHotEncoder` com `categories=` explícitas e `handle_unknown="error"`, sem
+  mutar o DataFrame de entrada e sem exigir `loan_status` na inferência.
+- **`predict_proba`** (`src/inference/inference.py`) — item A4: a rede estima
+  risco, o `threshold` é decisão de negócio. Permite ajustar o corte sem
+  re-treinar.
+- **AUROC e matriz de confusão** (`src/evaluation/metrics.py`) — item A3.
+  `evaluate_model` passa a **retornar** as métricas, alimentando o
+  `model_card.json`.
+- **`MODEL_VERSION`, `PREPROCESSING_VERSION` e `DEFAULT_THRESHOLD`**
+  (`src/utils/config.py`) — o pré-processamento versiona separado do modelo:
+  dois modelos treinados sobre a mesma transformação compartilham o valor.
+- **`tests/test_feature_contract.py`** (15 testes) — ordem e largura das
+  21 features, paridade entre lote e registro único, rejeição de categoria
+  desconhecida (RF-ML-04) e ausência de efeito colateral no DataFrame.
+- **`tests/test_bundle_export.py`** (14 testes) — paridade ONNX × PyTorch
+  (`atol=1e-5`), eixo de batch dinâmico, `model.onnx` autocontido, `SHA256SUMS`
+  íntegro, cobertura de categorias no golden e reprodução do bundle publicado.
+- Execução do pipeline **completo em container**: `LOANRISK_MODELS_DIR` e
+  volume `data/models` no `Dockerfile`/`docker-compose.yml`, com o container
+  rodando sob o `uid:gid` do host (injetados pelo `Makefile`) para que os
+  artefatos gerados pertençam ao usuário sem precisar de permissão 777.
+- `torchmetrics`, `onnx`, `onnxscript` e `onnxruntime` promovidos a
+  dependências de **runtime** (`requirements.in`): produzir o bundle é a função
+  deste projeto, e mantê-las só em dev fazia o container treinar por minutos e
+  quebrar no último passo.
+
+#### Alterado
+
+- **Contrato de features: 23 → 21 colunas.** `person_gender` foi removido —
+  gênero não é variável de decisão de crédito (decisão D2, seção 3.3 do plano).
+  O contrato anterior fica registrado como referência histórica.
+- **`NeuralNetworkV0`** — `in_features` e `hidden_units` parametrizados
+  (padrão `N_FEATURES = 21`), em vez das 23 entradas fixas no código.
+- **`evaluate_model`** recebe **probabilidades**, não rótulos: sobre 0/1
+  arredondados a AUROC degenera em acurácia balanceada.
+- **`main.py`** — pipeline: `fit_encoder → train_test_split → SMOTE →
+  fit_scaler → treino → persistência → métricas → export_bundle`. `EPOCHS` e
+  `LEARNING_RATE` viraram constantes nomeadas.
+- **Pesos `.pth` deixaram de ser versionados** (`.gitignore`), revertendo a
+  decisão da `v0.3.0`: são regeneráveis, ninguém os lê no código e o artefato
+  distribuível passou a ser o bundle.
+
+#### Corrigido
+
+- **O treino não era reproduzível** (item A8). `torch.manual_seed(RANDOM_SEED)`
+  rodava *depois* de `NeuralNetworkV0()` já ter sido construído — e a
+  inicialização dos pesos era a única fonte de aleatoriedade restante. Duas
+  execuções idênticas davam AUROC 0,9675 e 0,9689, enquanto o README afirmava
+  "treino determinístico" e o model card gravava `"seed": 42`. Semeando antes da
+  construção da rede, `model.onnx`, `golden.json` e `preprocessing.json` saem
+  byte a byte idênticos entre execuções (só o `model_card.json` varia, pelo
+  `created_at`). Atende RNF04.
+- **`squeeze()` colapsava o eixo de batch** quando havia um único registro
+  (`src/inference/inference.py`) — corrigido para `squeeze(-1)`.
+- **A largura do one-hot dependia do lote.** As categorias eram inferidas com
+  `np.unique` sobre os registros recebidos, então um registro isolado produzia
+  menos colunas que o treino — justamente o caminho da inferência. As categorias
+  agora são fixas no contrato.
+
+#### Removido
+
+- Caminho de registros tipados, substituído pelo caminho pandas +
+  `ColumnTransformer`: `LoanRecord`, `_parse_row` e `_write_csv`
+  (`src/data/loan_loader.py`); `CleanedRecord`, `encode_record`,
+  `clean_dataset`, `build_feature_matrix`, `split_data`, `NUMERIC_FEATURES` e
+  `ONEHOT_FEATURES` (`src/preprocessing/transform.py`), além de
+  `encode_features` e `scale_dataset`.
+- Testes escritos contra essa API: `tests/test_data.py` foi realinhado ao
+  `DataFrame` e `tests/test_preprocessing.py` ficou restrito à escala ordinal de
+  escolaridade — a única regra dele que não estava coberta pelos testes de
+  contrato. Suíte: **38 testes**, todos passando.
 
 ## [v0.3.0] — Etapa 5–6
 
@@ -153,7 +256,8 @@ isolada em container.
 - Projeto resultante do pivot para **análise de risco de empréstimos**
   (antes: cálculo de DRE).
 
-[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/lucascdsilva/auto-dre/releases/tag/v0.1.0
