@@ -28,7 +28,7 @@ from src.utils.config import Settings, RANDOM_SEED
 from src.evaluation.metrics import evaluate_model
 from src.export.bundle import export_bundle
 
-EPOCHS = 3000
+EPOCHS = 1500
 LEARNING_RATE = 0.01
 
 def run(settings: Settings) -> int:

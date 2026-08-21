@@ -7,7 +7,7 @@ a rede estima risco, o threshold é decisão de negócio. A separação permite 
 import torch
 from torch import nn
 
-DEFAULT_THRESHOLD = 0.5
+DEFAULT_THRESHOLD = 0.35
 
 
 def predict_proba(model: nn.Module, X: torch.Tensor) -> torch.Tensor:
