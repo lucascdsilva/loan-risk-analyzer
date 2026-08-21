@@ -1,10 +1,12 @@
 """Testes do pré-processamento e split do dataset de empréstimos."""
 
 import unittest
+import numpy as np
 
 from src.data.loan_loader import LoanRecord
 from src.preprocessing.transform import (
     CleanedRecord,
+    build_feature_matrix,
     clean_dataset,
     encode_record,
     split_data,
@@ -91,6 +93,35 @@ class TestSplitData(unittest.TestCase):
         with self.assertRaises(ValueError):
             split_data(records, test_ratio=1.5)
 
+
+class TestEncodeRecordEdgeCases(unittest.TestCase):
+    def test_unknown_education_returns_minus_one(self) -> None:
+        result = encode_record(_record(person_education="PhD"))
+        self.assertEqual(result.education_level, -1)
+
+    def test_gender_case_insensitive(self) -> None:
+        result = encode_record(_record(person_gender="Female"))
+        self.assertEqual(result.gender_female, 1)
+
+
+class TestCleanDatasetEdgeCases(unittest.TestCase):
+    def test_empty_input_returns_empty_list(self) -> None:
+        self.assertEqual(clean_dataset([]), [])
+
+
+class TestBuildFeatureMatrix(unittest.TestCase):
+    def test_numeric_features_present_in_names(self) -> None:
+        records = clean_dataset([_record()])
+        _, _, names = build_feature_matrix(records)
+        self.assertIn("person_age", names)
+        self.assertIn("gender_female", names)
+        self.assertIn("credit_score", names)
+
+    def test_onehot_features_present_in_names(self) -> None:
+        records = clean_dataset([_record()])
+        _, _, names = build_feature_matrix(records)
+        self.assertTrue(any("home_ownership" in n for n in names))
+        self.assertTrue(any("loan_intent" in n for n in names))
 
 if __name__ == "__main__":
     unittest.main()
