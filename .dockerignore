@@ -14,3 +14,7 @@ Dockerfile
 docker-compose.yml
 Makefile
 requirements.in
+.github
+scripts
+dist
+requirements-ci.in

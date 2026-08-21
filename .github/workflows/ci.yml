@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: "1"
+      PYTHONHASHSEED: "0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      # --require-hashes aborta se qualquer artefato divergir do hash travado;
+      # --no-deps garante que nada além do que foi travado seja instalado.
+      - name: Dependências travadas
+        run: pip install --require-hashes --no-deps -r requirements-ci.txt
+
+      - name: Testes unitários
+        run: python -m unittest discover -s tests -v
+
+      - name: Pipeline ponta a ponta
+        run: python main.py
+
+      - name: Valida o bundle gerado
+        run: python -m unittest tests.test_bundle_export -v
+
+      - name: Empacota (mesmo caminho do release)
+        run: scripts/pack_bundle.sh "ci-${{ github.sha }}"
+
+      - name: Publica para inspeção
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bundle-${{ github.sha }}
+          path: data/models/bundle/
+          retention-days: 14
+          if-no-files-found: error

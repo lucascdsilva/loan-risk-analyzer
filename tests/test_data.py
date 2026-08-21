@@ -3,33 +3,38 @@
 import unittest
 from pathlib import Path
 
-from src.data.loan_loader import LoanRecord, load_csv
+import pandas as pd
+
+from src.data.loan_loader import EXPECTED_COLUMNS, load_csv
 
 FIXTURE = Path(__file__).resolve().parents[1] / "data" / "loan_data.csv"
 
 
 class TestLoanLoader(unittest.TestCase):
     def test_load_returns_records(self) -> None:
-        records = load_csv(FIXTURE)
-        self.assertGreater(len(records), 0)
+        dataset = load_csv(FIXTURE)
+        self.assertIsInstance(dataset, pd.DataFrame)
+        self.assertGreater(len(dataset), 0)
 
-    def test_record_types(self) -> None:
-        records = load_csv(FIXTURE)
-        first = records[0]
-        self.assertIsInstance(first, LoanRecord)
-        self.assertIsInstance(first.person_age, float)
-        self.assertIsInstance(first.loan_status, int)
-        self.assertIn(first.loan_status, (0, 1))
+    def test_expected_columns_are_present(self) -> None:
+        dataset = load_csv(FIXTURE)
+        self.assertTrue(EXPECTED_COLUMNS.issubset(dataset.columns))
+
+    def test_numeric_columns_are_numeric(self) -> None:
+        dataset = load_csv(FIXTURE)
+        for column in ("person_age", "person_income", "loan_amnt",
+                       "loan_int_rate", "credit_score"):
+            with self.subTest(column=column):
+                self.assertTrue(pd.api.types.is_numeric_dtype(dataset[column]))
 
     def test_loan_status_binary(self) -> None:
-        records = load_csv(FIXTURE)
-        statuses = {r.loan_status for r in records}
-        self.assertTrue(statuses.issubset({0, 1}))
+        dataset = load_csv(FIXTURE)
+        self.assertTrue(dataset["loan_status"].isin({0, 1}).all())
 
     def test_previous_default_values(self) -> None:
-        records = load_csv(FIXTURE)
-        values = {r.previous_loan_defaults_on_file for r in records}
-        self.assertTrue(values.issubset({"Yes", "No"}))
+        dataset = load_csv(FIXTURE)
+        valores = dataset["previous_loan_defaults_on_file"]
+        self.assertTrue(valores.isin({"Yes", "No"}).all())
 
     def test_missing_file_raises(self) -> None:
         with self.assertRaises(FileNotFoundError):

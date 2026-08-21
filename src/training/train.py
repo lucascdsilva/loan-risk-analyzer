@@ -29,6 +29,8 @@ def train_nn(epochs: int, model: nn.Module, learning_rate: float, X_train: torch
     Em modo de inferência, avalia no conjunto de teste e imprime métricas
     a cada 500 épocas."""
     test_pred = None
+    torch.manual_seed(RANDOM_SEED)
+
     # Cria o otimizador para os parâmetros da rede
     #optimizer = torch.optim.SGD(params=nn_model.parameters(), lr=0.01) # taxa de aprendizado 0.01
     optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)

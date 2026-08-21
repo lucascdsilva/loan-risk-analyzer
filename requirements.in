@@ -6,4 +6,11 @@ scikit-learn>=1.3
 pandas>=3.0.3
 pip-tools
 torch>=2.0
+torchmetrics
 imbalanced-learn
+# Exportação do bundle de inferência
+# onnxruntime entra porque as probabilidades do golden.json são geradas pelo
+# grafo já exportado (ver src/export/bundle.py).
+onnx
+onnxscript
+onnxruntime

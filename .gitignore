@@ -9,9 +9,17 @@ venv/
 data/output/*
 !data/output/.gitkeep
 
+# Pesos de modelos treinados (artefatos binarios, nao versionar)
+data/models/*
+!data/models/.gitkeep
+
 # Jupyter
 .ipynb_checkpoints/
 
 # Ferramentas
 .pytest_cache/
 .mypy_cache/
+
+# Artefatos de empacotamento do release (gerados por scripts/pack_bundle.sh)
+dist/
+release-notes.md

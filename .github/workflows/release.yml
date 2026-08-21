@@ -1,0 +1,83 @@
+name: Release
+
+# Treina do zero a partir da tag e anexa o bundle a um Release público.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag a publicar (ex.: v0.4.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      OMP_NUM_THREADS: "1"
+      PYTHONHASHSEED: "0"
+
+    steps:
+      - name: Checkout da tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+
+      - name: Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Guarda de versão
+        run: python scripts/check_version.py "$TAG"
+
+      - name: Dependências travadas
+        run: pip install --require-hashes --no-deps -r requirements-ci.txt
+
+      - name: Testes unitários
+        run: python -m unittest discover -s tests -v
+
+      - name: Treina e exporta o bundle
+        run: python main.py
+
+      - name: Valida o bundle gerado
+        run: python -m unittest tests.test_bundle_export -v
+
+      - name: Empacota
+        run: scripts/pack_bundle.sh "$TAG"
+
+      - name: Corpo do release
+        run: python scripts/release_notes.py "$TAG" > release-notes.md
+
+      - name: Publica o Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            "dist/loan-risk-model-$TAG.tar.gz" \
+            "dist/loan-risk-model-$TAG.tar.gz.sha256"
+
+      - name: Resumo
+        run: |
+          {
+            echo "## Release $TAG publicado"
+            echo
+            cat "dist/loan-risk-model-$TAG.tar.gz.sha256"
+          } >> "$GITHUB_STEP_SUMMARY"
