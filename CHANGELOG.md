@@ -11,14 +11,49 @@ e o versionamento segue [SemVer](https://semver.org/lang/pt-BR/), onde cada
 | [v0.1.0](#v010--entrega-1) | Entrega 1 — pré-processamento e base de execução | Concluída |
 | [v0.2.0](#v020--etapa-4) | Etapa 4 — vetorização com NumPy | Concluída |
 | [v0.3.0](#v030--etapa-56) | Etapa 5–6 — classificador neural (PyTorch) | Concluída |
-| [v0.4.0](#v040--bloco-a) | Bloco A — o modelo como componente publicável | Concluída (release pendente) |
+| [v0.4.0](#v040--bloco-a) | Bloco A — o modelo como componente publicável | Concluída |
+| [v0.4.1](#v041--pipeline-de-release) | Pipeline de release automatizado (Bloco A, item A7) | Concluída |
 | _planejado_ | Etapa 7 — experimentos e hiperparâmetros | — |
 | _planejado_ | Etapas 9–11 — visão, requisitos e arquitetura → **v1.0.0** | — |
 
 ## [Unreleased]
 
-_Sem mudanças registradas desde a `v0.4.0`. Pendente: publicar o Release
-`v0.4.0` com o bundle anexado (item A7 do plano de arquitetura)._
+_Sem mudanças registradas desde a `v0.4.1`._
+
+## [v0.4.1] — Pipeline de release
+
+_2026-08-20_
+
+### O release deixa de ser manual
+
+Primeira versão publicada de ponta a ponta pelo CI: a tag dispara o treino do
+zero, a validação do bundle e a criação do Release com o artefato anexado —
+fecha o item A7 do plano de arquitetura.
+
+#### Adicionado
+
+- **`.github/workflows/ci.yml`** — testes unitários e dependências travadas
+  (`--require-hashes`) a cada push/PR.
+- **`.github/workflows/release.yml`** — disparado por tag `v*.*.*`: treina,
+  valida o bundle, empacota e publica o Release com o `.tar.gz` e o `.sha256`.
+- **`scripts/check_version.py`** — guarda que falha se a tag divergir de
+  `MODEL_VERSION`, impedindo bundle carimbado com versão errada.
+- **`scripts/pack_bundle.sh`** — empacota `data/models/bundle/` e gera o
+  checksum do tarball.
+- **`scripts/release_notes.py`** — corpo do Release gerado a partir do
+  `model_card.json` do artefato publicado, não de números copiados à mão.
+- **`requirements-ci.in`/`.txt`** — conjunto de dependências do CI, com hashes.
+- **`tests/test_evaluation.py`** — testes de `evaluate_model`.
+
+#### Alterado
+
+- `EPOCHS` de 3000 para 1500 em `main.py` — treino mais curto.
+- `DEFAULT_THRESHOLD` de `0.5` para `0.35`, agora definido em um único lugar
+  (`src/utils/config.py`): `src/inference/inference.py` importa a constante em
+  vez de redefini-la. Antes, o `model_card.json` publicava `0.5` enquanto as
+  métricas eram calculadas com `0.35`.
+- `MODEL_VERSION` para `v0.4.1`. `PREPROCESSING_VERSION` permanece `v0.4.0`:
+  o contrato de 21 features não mudou.
 
 ## [v0.4.0] — Bloco A
 
@@ -256,7 +291,8 @@ isolada em container.
 - Projeto resultante do pivot para **análise de risco de empréstimos**
   (antes: cálculo de DRE).
 
-[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.4.1...HEAD
+[v0.4.1]: https://github.com/lucascdsilva/auto-dre/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.1.0...v0.2.0

@@ -16,11 +16,12 @@ RANDOM_SEED: int = 42
 # MODEL_VERSION acompanha a tag de release; PREPROCESSING_VERSION só muda
 # quando a transformação de features muda — dois modelos treinados sobre o
 # mesmo pré-processamento compartilham o valor.
-MODEL_VERSION: str = "v0.4.0"
+MODEL_VERSION: str = "v0.4.1"
 PREPROCESSING_VERSION: str = "v0.4.0"
 
-# Corte padrão de classificação.
-DEFAULT_THRESHOLD: float = 0.5
+# Corte padrão de classificação. Fonte única do valor: inferência,
+# métricas e model_card.json leem daqui.
+DEFAULT_THRESHOLD: float = 0.35
 
 @dataclass(frozen=True)
 class Settings:
