@@ -1,0 +1,18 @@
+# Dependências de CI — mesmo conjunto de runtime, com a roda de CPU do PyTorch.
+#
+# Deriva de requirements.in com `-r`: a lista de pacotes vive em um lugar só e
+# este arquivo apenas troca a variante do torch. O runner do GitHub não tem GPU,
+# e o stack CUDA de requirements.txt custa ~5 GB e vários minutos por execução
+# para rodar um modelo de 461 parâmetros.
+#
+# O --extra-index-url normalmente abriria margem para dependency confusion; como
+# requirements-ci.txt é instalado com --require-hashes, o que for baixado tem de
+# bater byte a byte com o que foi travado aqui.
+#
+# Regenerar com `make lock-ci` (ou `make lock-all`).
+--index-url https://pypi.org/simple
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+-r requirements.in
+
+torch==2.13.0+cpu

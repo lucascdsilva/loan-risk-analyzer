@@ -3,7 +3,7 @@
 VENV := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 PIP := $(shell if [ -x .venv/bin/pip ]; then echo .venv/bin/pip; else echo pip3; fi)
 
-.PHONY: test lock lock-dev build run audit notebook clean
+.PHONY: test lock lock-ci lock-dev lock-all build run audit notebook clean
 
 # Roda a suite de testes localmente (sem container).
 test:
@@ -28,6 +28,15 @@ audit:
 # Regenera requirements-dev.txt com hashes a partir de requirements-dev.in.
 lock-dev:
 	$(VENV) -m piptools compile --generate-hashes --allow-unsafe -o requirements-dev.txt requirements-dev.in
+
+# Regenera requirements-ci.txt (torch de CPU) a partir de requirements-ci.in.
+# O runner do GitHub nao tem GPU: o stack CUDA custaria ~5 GB por execucao.
+lock-ci:
+	$(VENV) -m piptools compile --generate-hashes --allow-unsafe -o requirements-ci.txt requirements-ci.in
+
+# Regenera os tres lockfiles de uma vez. requirements-ci.in deriva de
+# requirements.in com -r, entao os dois precisam ser travados juntos.
+lock-all: lock lock-ci lock-dev
 
 # Inicia o Jupyter Notebook no diretorio notebooks/.
 notebook:

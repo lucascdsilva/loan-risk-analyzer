@@ -19,3 +19,7 @@ data/models/*
 # Ferramentas
 .pytest_cache/
 .mypy_cache/
+
+# Artefatos de empacotamento do release (gerados por scripts/pack_bundle.sh)
+dist/
+release-notes.md
