@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guarda de versão do release (item R4 de docs/PLANO_CI_RELEASE.md).
+"""Guarda de versão do release
 
 Falha se a tag que está sendo publicada divergir de ``MODEL_VERSION``.
 
