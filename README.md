@@ -55,7 +55,7 @@ O histórico completo de mudanças está no [CHANGELOG.md](CHANGELOG.md).
 
 ## Requisitos
 
-> Documento completo: **[Análise de Requisitos — GR4ML](https://docs.google.com/document/d/1z24g_IFanXNQI42cxdgsoDNYDp8hpv_UowvD1DHZ0IU/edit?usp=sharing)**
+> Documento completo: **[Análise de Requisitos — GR4ML](https://docs.google.com/document/d/1Fncw40jr3BUMrbev5XjyZpgV-ONI8Qjv/edit?usp=sharing&ouid=101768691850151038917&rtpof=true&sd=true)**
 
 O documento descreve a aplicação-alvo: um analista de crédito cadastra o cliente
 e a solicitação, pede a análise e recebe uma **probabilidade estimada de
