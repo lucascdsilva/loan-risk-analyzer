@@ -13,12 +13,57 @@ e o versionamento segue [SemVer](https://semver.org/lang/pt-BR/), onde cada
 | [v0.3.0](#v030--etapa-56) | Etapa 5–6 — classificador neural (PyTorch) | Concluída |
 | [v0.4.0](#v040--bloco-a) | Bloco A — o modelo como componente publicável | Concluída |
 | [v0.4.1](#v041--pipeline-de-release) | Pipeline de release automatizado (Bloco A, item A7) | Concluída |
+| [v0.5.0](#v050--requisitos-e-testes-automatizados) | Etapa 9 — requisitos (GR4ML) e suíte de testes automatizados | Concluída |
 | _planejado_ | Etapa 7 — experimentos e hiperparâmetros | — |
-| _planejado_ | Etapas 9–11 — visão, requisitos e arquitetura → **v1.0.0** | — |
+| _planejado_ | Etapas 10–11 — arquitetura e implantação → **v1.0.0** | — |
 
 ## [Unreleased]
 
-_Sem mudanças registradas desde a `v0.4.1`._
+_Sem mudanças registradas desde a `v0.5.0`._
+
+## [v0.5.0] — Requisitos e testes automatizados
+
+_2026-08-29_
+
+### O que o projeto deve fazer, escrito e verificável
+
+Até aqui o repositório tinha um pipeline correto sem um enunciado formal do
+problema que ele resolve. Esta versão fecha os dois lados: os requisitos passam
+a existir como documento **GR4ML** — visão, atores, casos de uso, entidades e
+requisitos funcionais, não-funcionais e de ML — e a suíte de **40 testes**
+`unittest` é a contraparte executável desse documento. Cada requisito de ML que
+este repositório atende tem um teste que o prova, e o CI roda todos eles a cada
+push.
+
+#### Adicionado
+
+- **Análise de Requisitos (GR4ML)** — visão do produto, atores (Analista de
+  Crédito, Administrador, Serviço de ML), casos de uso UC01–UC03, entidades,
+  RF01–RF14, RNF01–RNF07, requisitos de ML (RF-ML-01 a 05 e ML01–ML05),
+  arquitetura proposta e MVP. Link no README.
+- Seção **Requisitos** no README, com a tabela de **rastreabilidade**
+  requisito → módulo que o implementa → teste que o cobre. É o que liga o
+  documento de requisitos à suíte automatizada.
+- Seção **CI e release** no README, documentando `ci.yml`, `release.yml` e os
+  `scripts/` entregues na `v0.4.1` — que existiam no repositório mas nunca
+  tinham sido descritos.
+
+#### Alterado
+
+- `MODEL_VERSION` de `v0.4.1` para `v0.5.0` (`src/utils/config.py`).
+  `PREPROCESSING_VERSION` permanece `v0.4.0`: o contrato de 21 features não
+  mudou, e é exatamente para esse caso que os dois eixos são versionados
+  separadamente.
+- README — *Status atual*, *Etapas entregues*, *Estrutura* e *Roadmap*
+  realinhados ao estado real do repositório. A `v0.4.1` não constava em nenhum
+  deles, e a árvore de diretórios omitia `.github/workflows/`, `scripts/` e os
+  lockfiles de CI.
+
+#### Corrigido
+
+- **A suíte tem 40 testes, não 38.** `tests/test_evaluation.py` (2 testes)
+  entrou na `v0.4.1` sem que o total fosse atualizado, e a tabela de testes do
+  README também o omitia. Contagem e tabela corrigidas.
 
 ## [v0.4.1] — Pipeline de release
 
@@ -291,7 +336,8 @@ isolada em container.
 - Projeto resultante do pivot para **análise de risco de empréstimos**
   (antes: cálculo de DRE).
 
-[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/lucascdsilva/auto-dre/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.4.1...v0.5.0
 [v0.4.1]: https://github.com/lucascdsilva/auto-dre/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/lucascdsilva/auto-dre/compare/v0.2.0...v0.3.0

@@ -16,7 +16,7 @@ RANDOM_SEED: int = 42
 # MODEL_VERSION acompanha a tag de release; PREPROCESSING_VERSION só muda
 # quando a transformação de features muda — dois modelos treinados sobre o
 # mesmo pré-processamento compartilham o valor.
-MODEL_VERSION: str = "v0.4.1"
+MODEL_VERSION: str = "v0.5.0"
 PREPROCESSING_VERSION: str = "v0.4.0"
 
 # Corte padrão de classificação. Fonte única do valor: inferência,
